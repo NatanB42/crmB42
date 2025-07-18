@@ -46,6 +46,51 @@ export const PipelineManager: React.FC<PipelineManagerProps> = ({
   const [hiddenStages, setHiddenStages] = useState<Set<string>>(new Set());
   const [showStageVisibilityMenu, setShowStageVisibilityMenu] = useState(false);
 
+  // Load stage visibility from localStorage
+  const loadStageVisibility = useCallback((listId: string) => {
+    try {
+      const saved = localStorage.getItem(`pipeline-hidden-stages-${listId}`);
+      if (saved) {
+        const hiddenStageIds = JSON.parse(saved);
+        setHiddenStages(new Set(hiddenStageIds));
+        console.log('📂 Loaded stage visibility for list:', listId, hiddenStageIds);
+      } else {
+        setHiddenStages(new Set());
+        console.log('📂 No saved visibility config for list:', listId);
+      }
+    } catch (error) {
+      console.error('Error loading stage visibility:', error);
+      setHiddenStages(new Set());
+    }
+  }, []);
+
+  // Save stage visibility to localStorage
+  const saveStageVisibility = useCallback((listId: string, hiddenStageIds: Set<string>) => {
+    try {
+      const hiddenArray = Array.from(hiddenStageIds);
+      localStorage.setItem(`pipeline-hidden-stages-${listId}`, JSON.stringify(hiddenArray));
+      console.log('💾 Saved stage visibility for list:', listId, hiddenArray);
+    } catch (error) {
+      console.error('Error saving stage visibility:', error);
+    }
+  }, []);
+
+  // Load visibility config when list changes
+  useEffect(() => {
+    if (selectedListId) {
+      loadStageVisibility(selectedListId);
+    } else {
+      // For "all contacts" view, use a default key
+      loadStageVisibility('all-contacts');
+    }
+  }, [selectedListId, loadStageVisibility]);
+
+  // Save visibility config whenever hiddenStages changes
+  useEffect(() => {
+    const listKey = selectedListId || 'all-contacts';
+    saveStageVisibility(listKey, hiddenStages);
+  }, [hiddenStages, selectedListId, saveStageVisibility]);
+
   // Contact movement hook with optimistic updates
   const {
     moveContact,
@@ -170,22 +215,27 @@ export const PipelineManager: React.FC<PipelineManagerProps> = ({
 
   // Stage visibility functions
   const toggleStageVisibility = (stageId: string) => {
+    console.log('👁️ Toggling stage visibility:', stageId);
     setHiddenStages(prev => {
       const newSet = new Set(prev);
       if (newSet.has(stageId)) {
         newSet.delete(stageId);
+        console.log('👁️ Showing stage:', stageId);
       } else {
         newSet.add(stageId);
+        console.log('🚫 Hiding stage:', stageId);
       }
       return newSet;
     });
   };
 
   const showAllStages = () => {
+    console.log('👁️ Showing all stages');
     setHiddenStages(new Set());
   };
 
   const hideAllStages = () => {
+    console.log('🚫 Hiding all stages');
     setHiddenStages(new Set(sortedStages.map(s => s.id)));
   };
 
@@ -427,7 +477,7 @@ export const PipelineManager: React.FC<PipelineManagerProps> = ({
                   </div>
                   
                   <div className="px-4 py-2 border-t border-gray-200 text-xs text-gray-500">
-                    <p>💡 <strong>Dica:</strong> As configurações de visibilidade são específicas para este funil e não afetam outros funis.</p>
+                    <p>💡 <strong>Dica:</strong> As configurações de visibilidade são salvas automaticamente e específicas para este funil.</p>
                   </div>
                 </div>
               </div>
