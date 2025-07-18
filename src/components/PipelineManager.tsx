@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Plus, Edit2, Trash2, Users, TrendingUp, AlertTriangle, RotateCcw, X, Search, Filter, Calendar, User, Tag as TagIcon, Settings, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Plus, Edit2, Trash2, Users, TrendingUp, AlertTriangle, RotateCcw, X, Search, Filter, Calendar, User, Tag as TagIcon, Settings, MoreVertical, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import { useContactMovement } from '../hooks/useContactMovement';
 import { Contact, CRMData, PipelineStage } from '../types';
@@ -43,6 +43,8 @@ export const PipelineManager: React.FC<PipelineManagerProps> = ({
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [showStageManager, setShowStageManager] = useState(false);
   const [contactMenuOpen, setContactMenuOpen] = useState<string | null>(null);
+  const [hiddenStages, setHiddenStages] = useState<Set<string>>(new Set());
+  const [showStageVisibilityMenu, setShowStageVisibilityMenu] = useState(false);
 
   // Contact movement hook with optimistic updates
   const {
@@ -166,6 +168,30 @@ export const PipelineManager: React.FC<PipelineManagerProps> = ({
     setEndDate('');
   };
 
+  // Stage visibility functions
+  const toggleStageVisibility = (stageId: string) => {
+    setHiddenStages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(stageId)) {
+        newSet.delete(stageId);
+      } else {
+        newSet.add(stageId);
+      }
+      return newSet;
+    });
+  };
+
+  const showAllStages = () => {
+    setHiddenStages(new Set());
+  };
+
+  const hideAllStages = () => {
+    setHiddenStages(new Set(sortedStages.map(s => s.id)));
+  };
+
+  const getVisibleStages = () => {
+    return sortedStages.filter(stage => !hiddenStages.has(stage.id));
+  };
   const hasActiveFilters = searchTerm || selectedAgent || selectedTags.length > 0 || startDate || endDate;
 
   const filteredTags = data.tags.filter(tag =>
@@ -314,6 +340,100 @@ export const PipelineManager: React.FC<PipelineManagerProps> = ({
             Configurar Funil
           </button>
           
+          {/* Botão de Visibilidade das Etapas */}
+          <div className="relative">
+            <button
+              onClick={() => setShowStageVisibilityMenu(!showStageVisibilityMenu)}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              title="Controlar Visibilidade das Etapas"
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Visibilidade
+              {hiddenStages.size > 0 && (
+                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                  {hiddenStages.size} oculta(s)
+                </span>
+              )}
+            </button>
+
+            {/* Menu de Visibilidade */}
+            {showStageVisibilityMenu && (
+              <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                <div className="py-2">
+                  <div className="px-4 py-2 text-sm font-medium text-gray-900 border-b border-gray-200">
+                    Controlar Visibilidade das Etapas
+                  </div>
+                  
+                  {/* Ações Rápidas */}
+                  <div className="px-4 py-2 border-b border-gray-200">
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => {
+                          showAllStages();
+                          setShowStageVisibilityMenu(false);
+                        }}
+                        className="flex-1 inline-flex items-center justify-center px-2 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        Mostrar Todas
+                      </button>
+                      <button
+                        onClick={() => {
+                          hideAllStages();
+                          setShowStageVisibilityMenu(false);
+                        }}
+                        className="flex-1 inline-flex items-center justify-center px-2 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                      >
+                        <EyeOff className="h-3 w-3 mr-1" />
+                        Ocultar Todas
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Lista de Etapas */}
+                  <div className="max-h-64 overflow-y-auto">
+                    {sortedStages.map(stage => {
+                      const isHidden = hiddenStages.has(stage.id);
+                      const stageContacts = getContactsByStage(stage.id);
+                      
+                      return (
+                        <button
+                          key={stage.id}
+                          onClick={() => toggleStageVisibility(stage.id)}
+                          className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: stage.color }}
+                            />
+                            <span className={isHidden ? 'text-gray-400 line-through' : 'text-gray-900'}>
+                              {stage.name}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              ({stageContacts.length})
+                            </span>
+                          </div>
+                          <div className="flex items-center">
+                            {isHidden ? (
+                              <EyeOff className="h-4 w-4 text-gray-400" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-gray-600" />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="px-4 py-2 border-t border-gray-200 text-xs text-gray-500">
+                    <p>💡 <strong>Dica:</strong> As configurações de visibilidade são específicas para este funil e não afetam outros funis.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
@@ -468,10 +588,30 @@ export const PipelineManager: React.FC<PipelineManagerProps> = ({
         </div>
       )}
 
+      {/* Indicador de Etapas Ocultas */}
+      {hiddenStages.size > 0 && (
+        <div className="bg-orange-50 border-t border-orange-200 px-6 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center text-orange-700">
+              <EyeOff className="h-4 w-4 mr-2" />
+              <span className="text-sm font-medium">
+                {hiddenStages.size} etapa(s) oculta(s) neste funil
+              </span>
+            </div>
+            <button
+              onClick={showAllStages}
+              className="text-sm text-orange-600 hover:text-orange-800 font-medium"
+            >
+              Mostrar todas as etapas
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Pipeline Stages */}
       <div className="flex-1 overflow-x-auto bg-gray-50">
         <div className="flex space-x-6 p-6 min-w-max h-full">
-          {sortedStages.map((stage) => {
+          {getVisibleStages().map((stage) => {
             const stageContacts = getContactsByStage(stage.id);
             const stats = getStageStats(stage.id);
             const isDragOver = dragOverStage === stage.id;
@@ -764,6 +904,14 @@ export const PipelineManager: React.FC<PipelineManagerProps> = ({
         <div
           className="fixed inset-0 z-10"
           onClick={() => setContactMenuOpen(null)}
+        />
+      )}
+
+      {/* Click outside to close stage visibility menu */}
+      {showStageVisibilityMenu && (
+        <div
+          className="fixed inset-0 z-10"
+          onClick={() => setShowStageVisibilityMenu(false)}
         />
       )}
     </div>
